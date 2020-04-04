@@ -1,4 +1,4 @@
-# Cube.js Web Analytics Template
+# Cube.js Web Analytics
 
 Use this template to build your own open-source Google Analytics alternative. It’s developer friendly, hackable, and embeddable. It is easy to install the full working application and then customize every part of it from data collection to metrics definitions and visualizations. By self-hosting and managing the full lifecycle of the data you fully control the privacy and don’t need to send your users’ data to 3rd parties.
 
@@ -28,13 +28,11 @@ tools: Kafka, MinIO and PrestoDB instead of Kinesis, S3 and Athena respectively.
 
 ### 1. Configure Data Collection with Snowplow
 
-The data collection part is handled by Snowplow. Follow Snowplow’s [Setup Guide](https://github.com/snowplow/snowplow/wiki/Setting-up-SnowPlow) to install the tracker, collector, and Enrich.
-
-Snowplow comes with an S3 Loader and we recommend using it. Alternatively you can load your data in HDFS.
+The data collection part is handled by Snowplow. Follow Snowplow’s [Setup Guide](https://github.com/snowplow/snowplow/wiki/Setting-up-SnowPlow) to install the Tracker, Collector, Enrich, and S3 Loader.
 
 ### 2. Set up Athena (S3 only) or Presto
 
-Once you have data in the S3 or HDFS the next step is to set up Athena or Presto to query it. We’ll describe only Athena with an S3 setup here, but you can easily find a lot of materials online on how to set up an alternative configuration.
+Once you have data in the S3 the next step is to set up Athena or Presto to query it. We’ll describe only Athena with an S3 setup here, but you can easily find a lot of materials online on how to set up an alternative configuration.
 
 To query S3 data with Athena, we need to create a table for Snowplow events. Copy and paste the following DDL statement into the Athena console. Modify the `LOCATION` for the S3 bucket that stores your enriched Snowplow events.
 
@@ -179,13 +177,51 @@ LOCATION 's3://bucket-name/path/to/enriched/good';
 
 ### 3. Install MySQL for Cube.js External Pre-Aggregations
 
-This template uses MySQL as an external pre-aggregations database for performance optimization. Cube.js builds pre-aggregations from data stored in the main data warehouse, Athena in this example, and then uploads them into MySQL. Cube.js handles the refresh and partitioning of the pre-aggregations as well. 
-
-You need to provide the following environment variables for Cube.js to connect to MySQL: `CUBEJS_EXT_DB_HOST`, `CUBEJS_EXT_DB_NAME`, `CUBEJS_EXT_DB_PORT`, `CUBEJS_EXT_DB_USER`, `CUBEJS_EXT_DB_PASS`. You can learn more about [external pre-aggregations in the documentation here.](https://cube.dev/docs/pre-aggregations#external-pre-aggregations)
+This template uses MySQL as an external pre-aggregations database for performance optimization. Cube.js builds pre-aggregations from data stored in the main data warehouse, Athena in this example, and then uploads them into MySQL. Cube.js handles the refresh and partitioning of the pre-aggregations as well. You need to install MySQL and let Cube.js to connect to it.  You can learn more about [external pre-aggregations in the documentation here.](https://cube.dev/docs/pre-aggregations#external-pre-aggregations)
 
 ### 4. Install Cube.js backend and React frontend applications
 
-Docker container Configure via env variables
+First, you need to download or clone the code inside `examples/web-analytics`
+folder and install all the dependencies by running the following command:
+
+```bash
+$ npm install
+```
+
+The next step is to set environment variables required to run Cube.js backend.
+You can use `.env` file to store your credentials or provide them in any other way
+you'd prefer. Here the list of env variables you need to provide -
+
+```
+CUBEJS_AWS_REGION=Your Athena region (e.g. us-east-1)
+CUBEJS_AWS_S3_OUTPUT_LOCATION=Your S3 Output location
+# You can find the Athena S3 Output location here: https://docs.aws.amazon.com/athena/latest/ug/querying.html
+CUBEJS_JDBC_DRIVER=athena
+CUBEJS_DB_TYPE=athena
+CUBEJS_API_SECRET=SECRET-SECURE-STRING
+CUBEJS_EXT_DB_HOST=Your MySQL host
+CUBEJS_EXT_DB_NAME=Table name for pre-aggregations (e.g. cubejs_pre_aggregations)
+CUBEJS_EXT_DB_USER=MySQL username
+CUBEJS_EXT_DB_PASS=Password for MySQl user
+```
+
+Now, you can run the Cube.js server with the following command:
+
+```bash
+$ npm start
+```
+
+It will start the Cube.js server on [http://localhost:4000](http://localhost:4000). By default, it starts in the development environment and serves Cube.js
+Playground on the root route. To start the frontend app in the development you can navigate
+into `dashboard-app` folder, install dependencies, and run `yarn start`.
+It will start serving the frontend app from [http://localhost:3000](http://localhost:3000).
+
+To run it in the production mode you need first to build the frontend. To do that navigate into
+`dashboard-app` folder, install dependencies, and run
+`yarn build`. Then start the Cube.js server in the production mode by setting `NODE_ENV=production` env variable.
+It will serve the frontend app on the root route in the production mode.
+
+For deployment, you can easily build a docker image from the provided Dockerfile.
 
 ### 5. Enable Authentication via Google OAuth 2 (Optional)
 
