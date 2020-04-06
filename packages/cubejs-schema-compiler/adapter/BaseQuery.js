@@ -11,6 +11,7 @@ const BaseFilter = require('./BaseFilter');
 const BaseTimeDimension = require('./BaseTimeDimension');
 const ParamAllocator = require('./ParamAllocator');
 const PreAggregations = require('./PreAggregations');
+const SqlParser = require('../parser/SqlParser');
 
 const DEFAULT_PREAGGREGATIONS_SCHEMA = `stb_pre_aggregations`;
 
@@ -335,7 +336,9 @@ class BaseQuery {
 
   simpleQuery() {
     // eslint-disable-next-line prefer-template
-    return `${this.commonQuery()} ${this.baseWhere(this.allFilters)}` +
+    const inlineWhereConditions = [];
+    const commonQuery = this.rewriteInlineWhere(() => this.commonQuery(), inlineWhereConditions);
+    return `${commonQuery} ${this.baseWhere(this.allFilters.concat(inlineWhereConditions))}` +
       this.groupByClause() +
       this.baseHaving(this.measureFilters) +
       this.orderBy() +
@@ -619,13 +622,35 @@ class BaseQuery {
     return this.joinQuery(this.join, this.collectFromMembers(false, this.collectSubQueryDimensionsFor.bind(this)));
   }
 
+  rewriteInlineCubeSql(cube, isLeftJoinCondition) {
+    const sql = this.cubeSql(cube);
+    const cubeAlias = this.cubeAlias(cube);
+    const parser = new SqlParser(sql);
+    if (
+      this.cubeEvaluator.cubeFromPath(cube).rewriteQueries &&
+      parser.isSimpleAsteriskQuery()
+    ) {
+      const conditions = parser.extractWhereConditions(cubeAlias);
+      if (!isLeftJoinCondition && this.safeEvaluateSymbolContext().inlineWhereConditions) {
+        this.safeEvaluateSymbolContext().inlineWhereConditions.push({ filterToWhere: () => conditions });
+      }
+      return [parser.extractTableFrom(), cubeAlias, conditions];
+    } else {
+      return [sql, cubeAlias];
+    }
+  }
+
   joinQuery(join, subQueryDimensions) {
     const joins = join.joins.map(
-      j => `LEFT JOIN ${this.cubeSql(j.originalTo)} ${this.asSyntaxJoin} ${this.cubeAlias(j.originalTo)}
-      ON ${this.evaluateSql(j.originalFrom, j.join.sql)}`
+      j => {
+        const [cubeSql, cubeAlias, conditions] = this.rewriteInlineCubeSql(j.originalTo, true);
+        return `LEFT JOIN ${cubeSql} ${this.asSyntaxJoin} ${cubeAlias}
+      ON ${this.evaluateSql(j.originalFrom, j.join.sql)}${conditions ? ` AND (${conditions})` : ''}`;
+      }
     ).concat(subQueryDimensions.map(d => this.subQueryJoin(d)));
 
-    return `${this.cubeSql(join.root)} ${this.asSyntaxJoin} ${this.cubeAlias(join.root)}\n${joins.join("\n")}`;
+    const [cubeSql, cubeAlias] = this.rewriteInlineCubeSql(join.root);
+    return `${cubeSql} ${this.asSyntaxJoin} ${cubeAlias}\n${joins.join("\n")}`;
   }
 
   subQueryJoin(dimension) {
@@ -695,15 +720,18 @@ class BaseQuery {
   regularMeasuresSubQuery(measures, filters) {
     filters = filters || this.allFilters;
 
-    return `SELECT ${this.selectAllDimensionsAndMeasures(measures)} FROM ${
-      this.joinQuery(
-        this.join,
-        this.collectFrom(
-          this.dimensionsForSelect().concat(measures).concat(this.allFilters),
-          this.collectSubQueryDimensionsFor.bind(this)
-        )
+    const inlineWhereConditions = [];
+
+    const query = this.rewriteInlineWhere(() => this.joinQuery(
+      this.join,
+      this.collectFrom(
+        this.dimensionsForSelect().concat(measures).concat(this.allFilters),
+        this.collectSubQueryDimensionsFor.bind(this)
       )
-    } ${this.baseWhere(filters)}` +
+    ), inlineWhereConditions);
+    return `SELECT ${this.selectAllDimensionsAndMeasures(measures)} FROM ${
+      query
+    } ${this.baseWhere(filters.concat(inlineWhereConditions))}` +
     (!this.safeEvaluateSymbolContext().ungrouped && this.groupByClause() || '');
   }
 
@@ -712,8 +740,9 @@ class BaseQuery {
     const primaryKeyDimension = this.newDimension(this.primaryKeyName(keyCubeName));
     const shouldBuildJoinForMeasureSelect = this.checkShouldBuildJoinForMeasureSelect(measures, keyCubeName);
 
-    let keyCubeSql = this.cubeSql(keyCubeName);
-
+    let keyCubeSql;
+    let keyCubeAlias;
+    let keyCubeInlineLeftJoinConditions;
     const measureSubQueryDimensions = this.collectFrom(measures, this.collectSubQueryDimensionsFor.bind(this));
 
     if (shouldBuildJoinForMeasureSelect) {
@@ -725,6 +754,9 @@ class BaseQuery {
         );
       }
       keyCubeSql = `(${this.aggregateSubQueryMeasureJoin(keyCubeName, measures, measuresJoin, primaryKeyDimension, measureSubQueryDimensions)})`;
+      keyCubeAlias = this.cubeAlias(keyCubeName);
+    } else {
+      [keyCubeSql, keyCubeAlias, keyCubeInlineLeftJoinConditions] = this.rewriteInlineCubeSql(keyCubeName);
     }
 
     const measureSelectFn = () => measures.map(m => m.selectColumns());
@@ -742,8 +774,9 @@ class BaseQuery {
     const subQueryJoins =
       shouldBuildJoinForMeasureSelect ? '' : measureSubQueryDimensions.map(d => this.subQueryJoin(d)).join("\n");
     return `SELECT ${columnsForSelect} FROM (${this.keysQuery(primaryKeyDimension, filters)}) ${this.asSyntaxTable} ${this.escapeColumnName('keys')} ` +
-      `LEFT OUTER JOIN ${keyCubeSql} ${this.asSyntaxJoin} ${this.cubeAlias(keyCubeName)} ON
-      ${this.escapeColumnName('keys')}.${primaryKeyDimension.aliasName()} = ${keyInMeasureSelect} ` +
+      `LEFT OUTER JOIN ${keyCubeSql} ${this.asSyntaxJoin} ${keyCubeAlias} ON
+      ${this.escapeColumnName('keys')}.${primaryKeyDimension.aliasName()} = ${keyInMeasureSelect}
+      ${keyCubeInlineLeftJoinConditions ? ` AND (${keyCubeInlineLeftJoinConditions})` : ''}` +
       subQueryJoins +
       (!this.safeEvaluateSymbolContext().ungrouped && this.groupByClause() || '');
   }
@@ -793,12 +826,14 @@ class BaseQuery {
   }
 
   keysQuery(primaryKeyDimension, filters) {
+    const inlineWhereConditions = [];
+    const query = this.rewriteInlineWhere(() => this.joinQuery(
+      this.join,
+      this.collectFrom(this.keyDimensions(primaryKeyDimension), this.collectSubQueryDimensionsFor.bind(this))
+    ), inlineWhereConditions);
     return `SELECT DISTINCT ${this.keysSelect(primaryKeyDimension)} FROM ${
-      this.joinQuery(
-        this.join,
-        this.collectFrom(this.keyDimensions(primaryKeyDimension), this.collectSubQueryDimensionsFor.bind(this))
-      )
-    } ${this.baseWhere(filters)}`;
+      query
+    } ${this.baseWhere(filters.concat(inlineWhereConditions))}`;
   }
 
   keysSelect(primaryKeyDimension) {
@@ -875,6 +910,14 @@ class BaseQuery {
       context
     );
     return R.uniq(context.subQueryDimensions);
+  }
+
+  rewriteInlineWhere(fn, inlineWhereConditions) {
+    const context = { inlineWhereConditions };
+    return this.evaluateSymbolSqlWithContext(
+      fn,
+      context
+    );
   }
 
   groupByClause() {
@@ -1443,7 +1486,7 @@ class BaseQuery {
     );
     if (cubeNamesForTimeDimension.length === 1 && cubeNamesForTimeDimension[0] === cube) {
       const dimensionSql = this.dimensionSql(dimension);
-      return `select ${aggFunction}(${dimensionSql}) from ${this.cubeSql(cube)} ${this.asSyntaxTable} ${this.cubeAlias(cube)}`;
+      return `select ${aggFunction}(${this.convertTz(dimensionSql)}) from ${this.cubeSql(cube)} ${this.asSyntaxTable} ${this.cubeAlias(cube)}`;
     }
     return null;
   }
@@ -1649,8 +1692,8 @@ class BaseQuery {
     const timeDimension = this.newTimeDimension(references.timeDimensions[0]);
 
     return this.evaluateSymbolSqlWithContext(() => [
-      this.paramAllocator.buildSqlAndParams(this.aggSelectForDimension(timeDimension.cube(), timeDimension, 'min')),
-      this.paramAllocator.buildSqlAndParams(this.aggSelectForDimension(timeDimension.cube(), timeDimension, 'max'))
+      this.paramAllocator.buildSqlAndParams(this.aggSelectForDimension(timeDimension.path()[0], timeDimension, 'min')),
+      this.paramAllocator.buildSqlAndParams(this.aggSelectForDimension(timeDimension.path()[0], timeDimension, 'max'))
     ], { preAggregationQuery: true });
   }
 
