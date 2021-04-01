@@ -1189,13 +1189,13 @@
   resolved "https://registry.yarnpkg.com/@csstools/convert-colors/-/convert-colors-1.4.0.tgz#ad495dc41b12e75d588c6db8b9834f08fa131eb7"
   integrity sha512-5a6wqoJV/xEdbRNKVo6I4hO3VjyDq//8q2f9I6PBAvMesJHFauXDorcNCsr9RzvsZnaWi5NYCcfyqP1QeFHFbw==
 
-"@cubejs-client/core@^0.18.18":
-  version "0.18.18"
-  resolved "https://registry.yarnpkg.com/@cubejs-client/core/-/core-0.18.18.tgz#1ee03cd04be491d24af9f1e0406f85580b178834"
-  integrity sha512-MgnCepldRhlK1wWygTJddPYrkfy3MzEWrnFPHKuadpIenQqdudkJ1fbvBFCCE7pkfXBqnjfyIJ2cVTjRWyTFZg==
+"@cubejs-client/core@^0.19.14":
+  version "0.19.56"
+  resolved "https://registry.yarnpkg.com/@cubejs-client/core/-/core-0.19.56.tgz#4248fb05f7ef8c4623bc853829cce7859f2cc18a"
+  integrity sha512-8EFDgBrLt+ZD4MKNBafM5uyQ1mnL2Q2anzECLUu/FTG8hk1BWjujZ9Knwsm8DY2kLV5KQbyOFK+6JaLkjrTB7A==
   dependencies:
     "@babel/runtime" "^7.1.2"
-    core-js "^2.5.3"
+    core-js "^3.6.5"
     cross-fetch "^3.0.2"
     moment "^2.22.2"
     moment-range "^4.0.1"
@@ -1203,13 +1203,13 @@
     url-search-params-polyfill "^7.0.0"
     uuid "^3.4.0"
 
-"@cubejs-client/react@^0.18.18":
-  version "0.18.18"
-  resolved "https://registry.yarnpkg.com/@cubejs-client/react/-/react-0.18.18.tgz#b35d782a2d96f917026b1923075659668deff8b1"
-  integrity sha512-grNsP8TCcTleUDRxAuFuxtPqmIJTMM6Y3/OvIdEliLZ4uNCIb3OGQZJ4A5GY/qKmDdGY8aTSBgSJ/QzRhTo2vg==
+"@cubejs-client/react@^0.19.13":
+  version "0.19.56"
+  resolved "https://registry.yarnpkg.com/@cubejs-client/react/-/react-0.19.56.tgz#9c2dc24e6d6b68a9a41d1bbacb3a501061714cc1"
+  integrity sha512-orFjjfEMZN623ejoEfxyP6YSZicpi0t6mSx2Dj3Nj7A2Us1X3Vp6UED3X5Q4opy/XteCXcZu+skCo5dla9S7Lg==
   dependencies:
     "@babel/runtime" "^7.1.2"
-    core-js "^2.5.3"
+    core-js "^3.6.5"
     ramda "^0.27.0"
 
 "@emotion/is-prop-valid@^0.8.1":
@@ -3238,10 +3238,15 @@ core-js@^1.0.0:
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-1.2.7.tgz#652294c14651db28fa93bd2d5ff2983a4f08c636"
   integrity sha1-ZSKUwUZR2yj6k70tX/KYOk8IxjY=
 
-core-js@^2.4.0, core-js@^2.5.0, core-js@^2.5.3, core-js@^2.6.10:
+core-js@^2.4.0, core-js@^2.5.0, core-js@^2.6.10:
   version "2.6.11"
   resolved "https://registry.yarnpkg.com/core-js/-/core-js-2.6.11.tgz#38831469f9922bded8ee21c9dc46985e0399308c"
   integrity sha512-5wjnpaT/3dV+XB4borEsnAYQchn00XSgTAWKDkEqv+K8KevjbzmofK6hfJ9TZIlpj2N0xQpazy7PiRQiWHqzWg==
+
+core-js@^3.6.5:
+  version "3.10.0"
+  resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.10.0.tgz#9a020547c8b6879f929306949e31496bbe2ae9b3"
+  integrity sha512-MQx/7TLgmmDVamSyfE+O+5BHvG1aUGj/gHhLn1wVtm2B5u1eVIPvh7vkfjwWKNCjrTJB8+He99IntSQ1qP+vYQ==
 
 core-util-is@1.0.2, core-util-is@~1.0.0:
   version "1.0.2"
@@ -12808,9 +12813,9 @@ xtend@^4.0.0, xtend@~4.0.1:
   integrity sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==
 
 y18n@^3.2.1:
-  version "3.2.1"
-  resolved "https://registry.yarnpkg.com/y18n/-/y18n-3.2.1.tgz#6d15fba884c08679c0d77e88e7759e811e07fa41"
-  integrity sha1-bRX7qITAhnnA136I53WegR4H+kE=
+  version "3.2.2"
+  resolved "https://registry.yarnpkg.com/y18n/-/y18n-3.2.2.tgz#85c901bd6470ce71fc4bb723ad209b70f7f28696"
+  integrity sha512-uGZHXkHnhF0XeeAPgnKfPv1bgKAYyVvmNL1xlKsPYZPaIHxGti2hHqvOCQv71XMsLxu1QjergkqogUnms5D3YQ==
 
 "y18n@^3.2.1 || ^4.0.0", y18n@^4.0.0:
   version "4.0.0"
